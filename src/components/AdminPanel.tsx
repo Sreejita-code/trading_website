@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,40 +7,143 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAdmin } from '@/contexts/AdminContext';
-import { Users, Shield, CreditCard, Home } from 'lucide-react';
+import { Users, Shield, Home, Plus, Pencil, Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+// Transaction types
+interface WithdrawalTransaction {
+  id: string;
+  amount: string;
+  date: string;
+  status: string;
+}
+
+interface PremiumTransaction {
+  id: string;
+  amount: string;
+  date: string;
+  duration: string;
+  status: string;
+}
 
 const AdminPanel = () => {
   const navigate = useNavigate();
   const { adminData, setIsAdminLoggedIn, setAdminData } = useAdmin();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [userFilter, setUserFilter] = useState('all');
 
-  // Mock data - would come from backend
-  const mockUsers = [
-    { id: '#USR00123', name: 'John Doe', email: 'john@example.com', type: 'Premium' },
-    { id: '#USR00124', name: 'Jane Smith', email: 'jane@example.com', type: 'Non-Premium' },
-    { id: '#USR00125', name: 'Bob Johnson', email: 'bob@example.com', type: 'Premium' },
-  ];
+  // Dialog states
+  const [isWithdrawalDialogOpen, setIsWithdrawalDialogOpen] = useState(false);
+  const [isPremiumDialogOpen, setIsPremiumDialogOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [transactionType, setTransactionType] = useState<'withdrawal' | 'premium'>('withdrawal');
+
+  // Mock data with state management
+  const [mockUsers, setMockUsers] = useState([
+    { 
+      id: '#USR00123', 
+      name: 'John Doe', 
+      email: 'john@example.com', 
+      type: 'Premium',
+      phone: '+91 9876543210',
+      dob: '1990-01-15',
+      age: '34',
+      gender: 'Male',
+      pan: 'ABCDE1234F',
+      aadhar: '1234-5678-9012',
+      bankInfo: {
+        accountHolderName: 'John Doe',
+        accountNumber: '1234567890',
+        bankName: 'State Bank of India',
+        ifsc: 'SBIN0001234',
+        branchName: 'Main Branch'
+      },
+      upcomingPayment: {
+        amount: 5000,
+        nextDate: '2024-02-15'
+      }
+    },
+    { 
+      id: '#USR00124', 
+      name: 'Jane Smith', 
+      email: 'jane@example.com', 
+      type: 'Non-Premium',
+      phone: '+91 9876543211',
+      dob: '1985-05-20',
+      age: '39',
+      gender: 'Female',
+      pan: 'FGHIJ5678K',
+      aadhar: '5678-9012-3456',
+      bankInfo: {
+        accountHolderName: 'Jane Smith',
+        accountNumber: '0987654321',
+        bankName: 'HDFC Bank',
+        ifsc: 'HDFC0001234',
+        branchName: 'City Branch'
+      },
+      upcomingPayment: {
+        amount: 0,
+        nextDate: ''
+      }
+    },
+    { 
+      id: '#USR00125', 
+      name: 'Bob Johnson', 
+      email: 'bob@example.com', 
+      type: 'Premium',
+      phone: '+91 9876543212',
+      dob: '1992-12-10',
+      age: '32',
+      gender: 'Male',
+      pan: 'KLMNO9012P',
+      aadhar: '9012-3456-7890',
+      bankInfo: {
+        accountHolderName: 'Bob Johnson',
+        accountNumber: '1122334455',
+        bankName: 'ICICI Bank',
+        ifsc: 'ICIC0001234',
+        branchName: 'Tech Park Branch'
+      },
+      upcomingPayment: {
+        amount: 12000,
+        nextDate: '2024-02-20'
+      }
+    },
+  ]);
+
+  // Transaction data with state management
+  const [withdrawalTransactions, setWithdrawalTransactions] = useState<WithdrawalTransaction[]>([
+    { id: 'TXN001', amount: '₹5,000', date: '2024-01-15', status: 'Completed' },
+    { id: 'TXN002', amount: '₹3,000', date: '2024-01-10', status: 'Pending' },
+  ]);
+
+  const [premiumTransactions, setPremiumTransactions] = useState<PremiumTransaction[]>([
+    { id: 'PMT001', amount: '₹10,000', date: '2024-01-10', duration: '3 Months', status: 'Active' },
+  ]);
 
   const [withdrawalForm, setWithdrawalForm] = useState({
-    userId: '',
     transactionId: '',
-    amountPaid: '',
+    amount: '',
     dateOfPayment: '',
-    nextPaymentDate: '',
     status: ''
   });
 
   const [premiumForm, setPremiumForm] = useState({
-    userId: '',
     transactionId: '',
-    amountPaid: '',
+    amount: '',
     dateOfPayment: '',
     premiumDuration: '',
     status: ''
+  });
+
+  const [upcomingPayment, setUpcomingPayment] = useState({
+    amount: selectedUser?.upcomingPayment?.amount || 0,
+    nextDate: selectedUser?.upcomingPayment?.nextDate || ''
   });
 
   const handleLogout = () => {
@@ -52,6 +154,10 @@ const AdminPanel = () => {
 
   const handleUserClick = (user: any) => {
     setSelectedUser(user);
+    setUpcomingPayment({
+      amount: user.upcomingPayment?.amount || 0,
+      nextDate: user.upcomingPayment?.nextDate || ''
+    });
     setActiveTab('user-profile');
   };
 
@@ -62,20 +168,6 @@ const AdminPanel = () => {
     });
   };
 
-  const handleWithdrawalSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Withdrawal payment form submitted:', withdrawalForm);
-    alert('Withdrawal payment record saved successfully!');
-    setWithdrawalForm({
-      userId: '',
-      transactionId: '',
-      amountPaid: '',
-      dateOfPayment: '',
-      nextPaymentDate: '',
-      status: ''
-    });
-  };
-
   const handlePremiumFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPremiumForm({
       ...premiumForm,
@@ -83,18 +175,149 @@ const AdminPanel = () => {
     });
   };
 
-  const handlePremiumSubmit = (e: React.FormEvent) => {
+  const handleAddWithdrawal = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Premium payment form submitted:', premiumForm);
-    alert('Premium payment record saved successfully!');
+    if (editingTransaction) {
+      // Edit existing transaction
+      setWithdrawalTransactions(prev => 
+        prev.map(t => t.id === editingTransaction.id 
+          ? {
+              ...t,
+              id: withdrawalForm.transactionId,
+              amount: `₹${withdrawalForm.amount}`,
+              date: withdrawalForm.dateOfPayment,
+              status: withdrawalForm.status
+            }
+          : t
+        )
+      );
+      toast({
+        title: "Success",
+        description: "Withdrawal transaction updated successfully!",
+      });
+    } else {
+      // Add new transaction
+      const newTransaction: WithdrawalTransaction = {
+        id: withdrawalForm.transactionId,
+        amount: `₹${withdrawalForm.amount}`,
+        date: withdrawalForm.dateOfPayment,
+        status: withdrawalForm.status
+      };
+      setWithdrawalTransactions(prev => [...prev, newTransaction]);
+      toast({
+        title: "Success",
+        description: "Withdrawal transaction added successfully!",
+      });
+    }
+    
+    resetWithdrawalForm();
+    setIsWithdrawalDialogOpen(false);
+  };
+
+  const handleAddPremium = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTransaction) {
+      // Edit existing transaction
+      setPremiumTransactions(prev => 
+        prev.map(t => t.id === editingTransaction.id 
+          ? {
+              ...t,
+              id: premiumForm.transactionId,
+              amount: `₹${premiumForm.amount}`,
+              date: premiumForm.dateOfPayment,
+              duration: premiumForm.premiumDuration,
+              status: premiumForm.status
+            }
+          : t
+        )
+      );
+      toast({
+        title: "Success",
+        description: "Premium transaction updated successfully!",
+      });
+    } else {
+      // Add new transaction
+      const newTransaction: PremiumTransaction = {
+        id: premiumForm.transactionId,
+        amount: `₹${premiumForm.amount}`,
+        date: premiumForm.dateOfPayment,
+        duration: premiumForm.premiumDuration,
+        status: premiumForm.status
+      };
+      setPremiumTransactions(prev => [...prev, newTransaction]);
+      toast({
+        title: "Success",
+        description: "Premium transaction added successfully!",
+      });
+    }
+    
+    resetPremiumForm();
+    setIsPremiumDialogOpen(false);
+  };
+
+  const handleEditWithdrawal = (transaction: WithdrawalTransaction) => {
+    setEditingTransaction(transaction);
+    setWithdrawalForm({
+      transactionId: transaction.id,
+      amount: transaction.amount.replace('₹', ''),
+      dateOfPayment: transaction.date,
+      status: transaction.status
+    });
+    setIsWithdrawalDialogOpen(true);
+  };
+
+  const handleEditPremium = (transaction: PremiumTransaction) => {
+    setEditingTransaction(transaction);
     setPremiumForm({
-      userId: '',
+      transactionId: transaction.id,
+      amount: transaction.amount.replace('₹', ''),
+      dateOfPayment: transaction.date,
+      premiumDuration: transaction.duration,
+      status: transaction.status
+    });
+    setIsPremiumDialogOpen(true);
+  };
+
+  const handleDeleteWithdrawal = (transactionId: string) => {
+    setWithdrawalTransactions(prev => prev.filter(t => t.id !== transactionId));
+    toast({
+      title: "Success",
+      description: "Withdrawal transaction deleted successfully!",
+    });
+  };
+
+  const handleDeletePremium = (transactionId: string) => {
+    setPremiumTransactions(prev => prev.filter(t => t.id !== transactionId));
+    toast({
+      title: "Success",
+      description: "Premium transaction deleted successfully!",
+    });
+  };
+
+  const resetWithdrawalForm = () => {
+    setWithdrawalForm({
       transactionId: '',
-      amountPaid: '',
+      amount: '',
+      dateOfPayment: '',
+      status: ''
+    });
+    setEditingTransaction(null);
+  };
+
+  const resetPremiumForm = () => {
+    setPremiumForm({
+      transactionId: '',
+      amount: '',
       dateOfPayment: '',
       premiumDuration: '',
       status: ''
     });
+    setEditingTransaction(null);
+  };
+
+  const handleUpcomingPaymentUpdate = () => {
+    console.log('Upcoming payment updated:', upcomingPayment);
+    alert('Upcoming payment information updated successfully!');
   };
 
   const filteredUsers = mockUsers.filter(user => {
@@ -156,14 +379,6 @@ const AdminPanel = () => {
               <Users className="h-4 w-4 mr-2" />
               Users
             </Button>
-            <Button
-              variant={activeTab === 'payments' ? 'default' : 'ghost'}
-              className="w-full justify-start"
-              onClick={() => setActiveTab('payments')}
-            >
-              <CreditCard className="h-4 w-4 mr-2" />
-              Payments
-            </Button>
           </div>
         </nav>
 
@@ -205,10 +420,7 @@ const AdminPanel = () => {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold">User List</h2>
-                <Button
-                  variant="outline"
-                  onClick={() => setActiveTab('dashboard')}
-                >
+                <Button variant="outline" onClick={() => setActiveTab('dashboard')}>
                   Back to Dashboard
                 </Button>
               </div>
@@ -259,7 +471,7 @@ const AdminPanel = () => {
                             size="sm"
                             onClick={() => handleUserClick(user)}
                           >
-                            View Profile
+                            Open Full Profile
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -273,19 +485,17 @@ const AdminPanel = () => {
           {activeTab === 'user-profile' && selectedUser && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold">User Profile - {selectedUser.name}</h2>
-                <Button
-                  variant="outline"
-                  onClick={() => setActiveTab('users')}
-                >
+                <h2 className="text-3xl font-bold">User Full Profile (Admin View) - {selectedUser.name}</h2>
+                <Button variant="outline" onClick={() => setActiveTab('users')}>
                   Back to Users
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Personal Info */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Personal Information</CardTitle>
+                    <CardTitle>Personal Info</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -298,19 +508,65 @@ const AdminPanel = () => {
                         <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium">User ID</label>
-                        <p className="text-sm text-muted-foreground">{selectedUser.id}</p>
+                        <label className="text-sm font-medium">Phone</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.phone}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium">Account Type</label>
-                        <Badge variant={selectedUser.type === 'Premium' ? 'default' : 'secondary'}>
-                          {selectedUser.type}
-                        </Badge>
+                        <label className="text-sm font-medium">DOB</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.dob}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Age</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.age}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Gender</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.gender}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">PAN</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.pan}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Aadhar</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.aadhar}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
+                {/* Bank Info */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Bank Info</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Account Holder Name</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.bankInfo?.accountHolderName}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Account Number</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.bankInfo?.accountNumber}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Bank Name</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.bankInfo?.bankName}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">IFSC</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.bankInfo?.ifsc}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Branch Name</label>
+                        <p className="text-sm text-muted-foreground">{selectedUser.bankInfo?.branchName}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* User Role Control */}
                 <Card>
                   <CardHeader>
                     <CardTitle>User Role Control</CardTitle>
@@ -335,270 +591,331 @@ const AdminPanel = () => {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Upcoming Payment */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upcoming Payment</CardTitle>
+                    <p className="text-sm text-muted-foreground">Displayed on user's dashboard</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">Payment Amount</label>
+                      <Input
+                        type="number"
+                        value={upcomingPayment.amount}
+                        onChange={(e) => setUpcomingPayment({...upcomingPayment, amount: Number(e.target.value)})}
+                        placeholder="Enter amount"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Next Payment Date</label>
+                      <Input
+                        type="date"
+                        value={upcomingPayment.nextDate}
+                        onChange={(e) => setUpcomingPayment({...upcomingPayment, nextDate: e.target.value})}
+                      />
+                    </div>
+                    <Button onClick={handleUpcomingPaymentUpdate}>
+                      Update Payment Info
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
 
+              {/* Payment Management */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Transaction History</CardTitle>
+                  <CardTitle>Payment Management</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Tabs defaultValue="withdrawals">
                     <TabsList>
-                      <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
-                      <TabsTrigger value="premium">Premium Purchases</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="withdrawals">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Transaction ID</TableHead>
-                            <TableHead>Amount</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>TXN001</TableCell>
-                            <TableCell>₹5,000</TableCell>
-                            <TableCell>2024-01-15</TableCell>
-                            <TableCell><Badge variant="default">Completed</Badge></TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TabsContent>
-                    <TabsContent value="premium">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Transaction ID</TableHead>
-                            <TableHead>Amount</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>PMT001</TableCell>
-                            <TableCell>₹10,000</TableCell>
-                            <TableCell>2024-01-10</TableCell>
-                            <TableCell><Badge variant="default">Completed</Badge></TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {activeTab === 'payments' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold">Payment Management</h2>
-                <Button
-                  variant="outline"
-                  onClick={() => setActiveTab('dashboard')}
-                >
-                  Back to Dashboard
-                </Button>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Add Payment Records</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Tabs defaultValue="withdrawal">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="withdrawal">Add Withdrawal Payment</TabsTrigger>
-                      <TabsTrigger value="premium">Add Premium Payment</TabsTrigger>
+                      <TabsTrigger value="withdrawals">Withdrawal History</TabsTrigger>
+                      <TabsTrigger value="premium">Premium History</TabsTrigger>
                     </TabsList>
                     
-                    <TabsContent value="withdrawal" className="space-y-4">
-                      <form onSubmit={handleWithdrawalSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label htmlFor="withdrawal-userId" className="block text-sm font-medium mb-2">
-                              User ID *
-                            </label>
-                            <Input
-                              id="withdrawal-userId"
-                              name="userId"
-                              type="text"
-                              required
-                              value={withdrawalForm.userId}
-                              onChange={handleWithdrawalFormChange}
-                              placeholder="e.g., #USR00123"
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="withdrawal-transactionId" className="block text-sm font-medium mb-2">
-                              Transaction ID *
-                            </label>
-                            <Input
-                              id="withdrawal-transactionId"
-                              name="transactionId"
-                              type="text"
-                              required
-                              value={withdrawalForm.transactionId}
-                              onChange={handleWithdrawalFormChange}
-                              placeholder="e.g., TXN001"
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="withdrawal-amountPaid" className="block text-sm font-medium mb-2">
-                              Amount Paid *
-                            </label>
-                            <Input
-                              id="withdrawal-amountPaid"
-                              name="amountPaid"
-                              type="number"
-                              required
-                              value={withdrawalForm.amountPaid}
-                              onChange={handleWithdrawalFormChange}
-                              placeholder="Enter amount"
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="withdrawal-dateOfPayment" className="block text-sm font-medium mb-2">
-                              Date of Payment *
-                            </label>
-                            <Input
-                              id="withdrawal-dateOfPayment"
-                              name="dateOfPayment"
-                              type="date"
-                              required
-                              value={withdrawalForm.dateOfPayment}
-                              onChange={handleWithdrawalFormChange}
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="withdrawal-nextPaymentDate" className="block text-sm font-medium mb-2">
-                              Next Payment Date *
-                            </label>
-                            <Input
-                              id="withdrawal-nextPaymentDate"
-                              name="nextPaymentDate"
-                              type="date"
-                              required
-                              value={withdrawalForm.nextPaymentDate}
-                              onChange={handleWithdrawalFormChange}
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="withdrawal-status" className="block text-sm font-medium mb-2">
-                              Status *
-                            </label>
-                            <Select value={withdrawalForm.status} onValueChange={(value) => setWithdrawalForm({...withdrawalForm, status: value})}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Paid">Paid</SelectItem>
-                                <SelectItem value="Pending">Pending</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <Button type="submit" className="w-full">
-                          Save Withdrawal Payment Record
-                        </Button>
-                      </form>
+                    <TabsContent value="withdrawals" className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-semibold">Withdrawal Transactions</h4>
+                        <Dialog open={isWithdrawalDialogOpen} onOpenChange={setIsWithdrawalDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" className="flex items-center gap-2" onClick={() => resetWithdrawalForm()}>
+                              <Plus className="h-4 w-4" />
+                              Add Transaction
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>
+                                {editingTransaction ? 'Edit Withdrawal Transaction' : 'Add Withdrawal Transaction'}
+                              </DialogTitle>
+                            </DialogHeader>
+                            <form onSubmit={handleAddWithdrawal} className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label htmlFor="withdrawal-transactionId" className="block text-sm font-medium mb-2">
+                                    Transaction ID *
+                                  </label>
+                                  <Input
+                                    id="withdrawal-transactionId"
+                                    name="transactionId"
+                                    type="text"
+                                    required
+                                    value={withdrawalForm.transactionId}
+                                    onChange={handleWithdrawalFormChange}
+                                    placeholder="e.g., TXN001"
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="withdrawal-amount" className="block text-sm font-medium mb-2">
+                                    Amount *
+                                  </label>
+                                  <Input
+                                    id="withdrawal-amount"
+                                    name="amount"
+                                    type="number"
+                                    required
+                                    value={withdrawalForm.amount}
+                                    onChange={handleWithdrawalFormChange}
+                                    placeholder="Enter amount"
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="withdrawal-dateOfPayment" className="block text-sm font-medium mb-2">
+                                    Date of Payment *
+                                  </label>
+                                  <Input
+                                    id="withdrawal-dateOfPayment"
+                                    name="dateOfPayment"
+                                    type="date"
+                                    required
+                                    value={withdrawalForm.dateOfPayment}
+                                    onChange={handleWithdrawalFormChange}
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="withdrawal-status" className="block text-sm font-medium mb-2">
+                                    Status *
+                                  </label>
+                                  <Select 
+                                    value={withdrawalForm.status} 
+                                    onValueChange={(value) => setWithdrawalForm({...withdrawalForm, status: value})}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Paid">Paid</SelectItem>
+                                      <SelectItem value="Pending">Pending</SelectItem>
+                                      <SelectItem value="Completed">Completed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <Button type="submit" className="w-full">
+                                {editingTransaction ? 'Update Transaction' : 'Add Transaction'}
+                              </Button>
+                            </form>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Transaction ID</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {withdrawalTransactions.map((transaction) => (
+                            <TableRow key={transaction.id}>
+                              <TableCell>{transaction.id}</TableCell>
+                              <TableCell>{transaction.amount}</TableCell>
+                              <TableCell>{transaction.date}</TableCell>
+                              <TableCell>
+                                <Badge variant={transaction.status === 'Completed' || transaction.status === 'Paid' ? 'default' : 'secondary'}>
+                                  {transaction.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleEditWithdrawal(transaction)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleDeleteWithdrawal(transaction.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </TabsContent>
 
                     <TabsContent value="premium" className="space-y-4">
-                      <form onSubmit={handlePremiumSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label htmlFor="premium-userId" className="block text-sm font-medium mb-2">
-                              User ID *
-                            </label>
-                            <Input
-                              id="premium-userId"
-                              name="userId"
-                              type="text"
-                              required
-                              value={premiumForm.userId}
-                              onChange={handlePremiumFormChange}
-                              placeholder="e.g., #USR00123"
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="premium-transactionId" className="block text-sm font-medium mb-2">
-                              Transaction ID *
-                            </label>
-                            <Input
-                              id="premium-transactionId"
-                              name="transactionId"
-                              type="text"
-                              required
-                              value={premiumForm.transactionId}
-                              onChange={handlePremiumFormChange}
-                              placeholder="e.g., PMT001"
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="premium-amountPaid" className="block text-sm font-medium mb-2">
-                              Amount Paid *
-                            </label>
-                            <Input
-                              id="premium-amountPaid"
-                              name="amountPaid"
-                              type="number"
-                              required
-                              value={premiumForm.amountPaid}
-                              onChange={handlePremiumFormChange}
-                              placeholder="Enter amount"
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="premium-dateOfPayment" className="block text-sm font-medium mb-2">
-                              Date of Payment *
-                            </label>
-                            <Input
-                              id="premium-dateOfPayment"
-                              name="dateOfPayment"
-                              type="date"
-                              required
-                              value={premiumForm.dateOfPayment}
-                              onChange={handlePremiumFormChange}
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="premium-premiumDuration" className="block text-sm font-medium mb-2">
-                              Premium Duration *
-                            </label>
-                            <Select value={premiumForm.premiumDuration} onValueChange={(value) => setPremiumForm({...premiumForm, premiumDuration: value})}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select duration" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="1 Month (₹5000)">1 Month (₹5000)</SelectItem>
-                                <SelectItem value="3 Months (₹12000)">3 Months (₹12000)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <label htmlFor="premium-status" className="block text-sm font-medium mb-2">
-                              Status *
-                            </label>
-                            <Select value={premiumForm.status} onValueChange={(value) => setPremiumForm({...premiumForm, status: value})}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Active">Active</SelectItem>
-                                <SelectItem value="Expired">Expired</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <Button type="submit" className="w-full">
-                          Save Premium Payment Record
-                        </Button>
-                      </form>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-semibold">Premium Transactions</h4>
+                        <Dialog open={isPremiumDialogOpen} onOpenChange={setIsPremiumDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" className="flex items-center gap-2" onClick={() => resetPremiumForm()}>
+                              <Plus className="h-4 w-4" />
+                              Add Transaction
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>
+                                {editingTransaction ? 'Edit Premium Transaction' : 'Add Premium Transaction'}
+                              </DialogTitle>
+                            </DialogHeader>
+                            <form onSubmit={handleAddPremium} className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label htmlFor="premium-transactionId" className="block text-sm font-medium mb-2">
+                                    Transaction ID *
+                                  </label>
+                                  <Input
+                                    id="premium-transactionId"
+                                    name="transactionId"
+                                    type="text"
+                                    required
+                                    value={premiumForm.transactionId}
+                                    onChange={handlePremiumFormChange}
+                                    placeholder="e.g., PMT001"
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="premium-amount" className="block text-sm font-medium mb-2">
+                                    Amount *
+                                  </label>
+                                  <Input
+                                    id="premium-amount"
+                                    name="amount"
+                                    type="number"
+                                    required
+                                    value={premiumForm.amount}
+                                    onChange={handlePremiumFormChange}
+                                    placeholder="Enter amount"
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="premium-dateOfPayment" className="block text-sm font-medium mb-2">
+                                    Date of Payment *
+                                  </label>
+                                  <Input
+                                    id="premium-dateOfPayment"
+                                    name="dateOfPayment"
+                                    type="date"
+                                    required
+                                    value={premiumForm.dateOfPayment}
+                                    onChange={handlePremiumFormChange}
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="premium-premiumDuration" className="block text-sm font-medium mb-2">
+                                    Premium Duration *
+                                  </label>
+                                  <Select 
+                                    value={premiumForm.premiumDuration} 
+                                    onValueChange={(value) => setPremiumForm({...premiumForm, premiumDuration: value})}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select duration" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="1 Month">1 Month</SelectItem>
+                                      <SelectItem value="3 Months">3 Months</SelectItem>
+                                      <SelectItem value="6 Months">6 Months</SelectItem>
+                                      <SelectItem value="12 Months">12 Months</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label htmlFor="premium-status" className="block text-sm font-medium mb-2">
+                                    Status *
+                                  </label>
+                                  <Select 
+                                    value={premiumForm.status} 
+                                    onValueChange={(value) => setPremiumForm({...premiumForm, status: value})}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Active">Active</SelectItem>
+                                      <SelectItem value="Expired">Expired</SelectItem>
+                                      <SelectItem value="Pending">Pending</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <Button type="submit" className="w-full">
+                                {editingTransaction ? 'Update Transaction' : 'Add Transaction'}
+                              </Button>
+                            </form>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Transaction ID</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Duration</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {premiumTransactions.map((transaction) => (
+                            <TableRow key={transaction.id}>
+                              <TableCell>{transaction.id}</TableCell>
+                              <TableCell>{transaction.amount}</TableCell>
+                              <TableCell>{transaction.date}</TableCell>
+                              <TableCell>{transaction.duration}</TableCell>
+                              <TableCell>
+                                <Badge variant={transaction.status === 'Active' ? 'default' : 'secondary'}>
+                                  {transaction.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleEditPremium(transaction)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleDeletePremium(transaction.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </TabsContent>
                   </Tabs>
                 </CardContent>

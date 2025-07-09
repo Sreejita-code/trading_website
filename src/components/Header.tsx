@@ -80,7 +80,7 @@ const Header = () => {
                   key={item.label}
                   variant="ghost"
                   onClick={() => scrollToSection(item.link)}
-                  className="text-sm font-medium hover:text-primary transition-colors duration-200"
+                  className="text-sm font-medium relative overflow-hidden after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-blue-500 after:transition-all after:duration-300 hover:after:w-full hover:bg-transparent hover:text-current"
                 >
                   {item.label}
                 </Button>
@@ -90,7 +90,7 @@ const Header = () => {
                 <Button
                   variant="ghost"
                   onClick={handleLoginClick}
-                  className="text-sm font-medium hover:text-primary transition-colors duration-200"
+                  className="text-sm font-medium relative overflow-hidden after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-blue-500 after:transition-all after:duration-300 hover:after:w-full hover:bg-transparent hover:text-current"
                 >
                   Login / Signup
                 </Button>
@@ -146,7 +146,7 @@ const Header = () => {
                   key={item.label}
                   variant="ghost"
                   onClick={() => scrollToSection(item.link)}
-                  className="w-full justify-start text-sm font-medium hover:text-primary transition-colors duration-200"
+                  className="w-full justify-start text-sm font-medium relative overflow-hidden after:absolute after:bottom-0 after:left-4 after:w-0 after:h-0.5 after:bg-blue-500 after:transition-all after:duration-300 hover:after:w-[calc(100%-2rem)] hover:bg-transparent hover:text-current"
                 >
                   {item.label}
                 </Button>
@@ -156,7 +156,7 @@ const Header = () => {
                 <Button
                   variant="ghost"
                   onClick={handleLoginClick}
-                  className="w-full justify-start text-sm font-medium hover:text-primary transition-colors duration-200"
+                  className="w-full justify-start text-sm font-medium relative overflow-hidden after:absolute after:bottom-0 after:left-4 after:w-0 after:h-0.5 after:bg-blue-500 after:transition-all after:duration-300 hover:after:w-[calc(100%-2rem)] hover:bg-transparent hover:text-current"
                 >
                   Login / Signup
                 </Button>
