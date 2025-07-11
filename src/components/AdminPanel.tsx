@@ -28,6 +28,13 @@ interface PremiumTransaction {
   status: string;
 }
 
+interface UpcomingPayment {
+  id: string;
+  userId: string;
+  amount: number;
+  paymentDate: string;
+}
+
 const AdminPanel = () => {
   const navigate = useNavigate();
   const { adminData, setIsAdminLoggedIn, setAdminData } = useAdmin();
@@ -40,6 +47,7 @@ const AdminPanel = () => {
   // Dialog states
   const [isWithdrawalDialogOpen, setIsWithdrawalDialogOpen] = useState(false);
   const [isPremiumDialogOpen, setIsPremiumDialogOpen] = useState(false);
+  const [isUpcomingPaymentDialogOpen, setIsUpcomingPaymentDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [transactionType, setTransactionType] = useState<'withdrawal' | 'premium'>('withdrawal');
 
@@ -126,6 +134,12 @@ const AdminPanel = () => {
     { id: 'PMT001', amount: '₹10,000', date: '2024-01-10', duration: '3 Months', status: 'Active' },
   ]);
 
+  // Upcoming payments state
+  const [upcomingPayments, setUpcomingPayments] = useState<UpcomingPayment[]>([
+    { id: 'UP001', userId: '#USR00123', amount: 5000, paymentDate: '2024-02-15' },
+    { id: 'UP002', userId: '#USR00125', amount: 12000, paymentDate: '2024-02-20' },
+  ]);
+
   const [withdrawalForm, setWithdrawalForm] = useState({
     transactionId: '',
     amount: '',
@@ -139,6 +153,12 @@ const AdminPanel = () => {
     dateOfPayment: '',
     premiumDuration: '',
     status: ''
+  });
+
+  const [upcomingPaymentForm, setUpcomingPaymentForm] = useState({
+    userId: '',
+    amount: '',
+    paymentDate: ''
   });
 
   const [upcomingPayment, setUpcomingPayment] = useState({
@@ -171,6 +191,13 @@ const AdminPanel = () => {
   const handlePremiumFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPremiumForm({
       ...premiumForm,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleUpcomingPaymentFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUpcomingPaymentForm({
+      ...upcomingPaymentForm,
       [e.target.name]: e.target.value
     });
   };
@@ -255,6 +282,76 @@ const AdminPanel = () => {
     setIsPremiumDialogOpen(false);
   };
 
+  const handleAddUpcomingPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingTransaction) {
+      // Edit existing upcoming payment
+      setUpcomingPayments(prev => 
+        prev.map(p => p.id === editingTransaction.id 
+          ? {
+              ...p,
+              userId: upcomingPaymentForm.userId,
+              amount: Number(upcomingPaymentForm.amount),
+              paymentDate: upcomingPaymentForm.paymentDate
+            }
+          : p
+        )
+      );
+      
+      // Update user's upcoming payment info
+      setMockUsers(prev => 
+        prev.map(user => 
+          user.id === upcomingPaymentForm.userId 
+            ? {
+                ...user,
+                upcomingPayment: {
+                  amount: Number(upcomingPaymentForm.amount),
+                  nextDate: upcomingPaymentForm.paymentDate
+                }
+              }
+            : user
+        )
+      );
+      
+      toast({
+        title: "Success",
+        description: "Upcoming payment updated successfully and reflected in user's dashboard!",
+      });
+    } else {
+      // Add new upcoming payment
+      const newPayment: UpcomingPayment = {
+        id: `UP${Date.now()}`,
+        userId: upcomingPaymentForm.userId,
+        amount: Number(upcomingPaymentForm.amount),
+        paymentDate: upcomingPaymentForm.paymentDate
+      };
+      setUpcomingPayments(prev => [...prev, newPayment]);
+      
+      // Update user's upcoming payment info
+      setMockUsers(prev => 
+        prev.map(user => 
+          user.id === upcomingPaymentForm.userId 
+            ? {
+                ...user,
+                upcomingPayment: {
+                  amount: Number(upcomingPaymentForm.amount),
+                  nextDate: upcomingPaymentForm.paymentDate
+                }
+              }
+            : user
+        )
+      );
+      
+      toast({
+        title: "Success",
+        description: "Upcoming payment added successfully and reflected in user's dashboard!",
+      });
+    }
+    
+    resetUpcomingPaymentForm();
+    setIsUpcomingPaymentDialogOpen(false);
+  };
+
   const handleEditWithdrawal = (transaction: WithdrawalTransaction) => {
     setEditingTransaction(transaction);
     setWithdrawalForm({
@@ -278,6 +375,16 @@ const AdminPanel = () => {
     setIsPremiumDialogOpen(true);
   };
 
+  const handleEditUpcomingPayment = (payment: UpcomingPayment) => {
+    setEditingTransaction(payment);
+    setUpcomingPaymentForm({
+      userId: payment.userId,
+      amount: payment.amount.toString(),
+      paymentDate: payment.paymentDate
+    });
+    setIsUpcomingPaymentDialogOpen(true);
+  };
+
   const handleDeleteWithdrawal = (transactionId: string) => {
     setWithdrawalTransactions(prev => prev.filter(t => t.id !== transactionId));
     toast({
@@ -292,6 +399,34 @@ const AdminPanel = () => {
       title: "Success",
       description: "Premium transaction deleted successfully!",
     });
+  };
+
+  const handleDeleteUpcomingPayment = (paymentId: string) => {
+    const payment = upcomingPayments.find(p => p.id === paymentId);
+    if (payment) {
+      // Remove from upcoming payments
+      setUpcomingPayments(prev => prev.filter(p => p.id !== paymentId));
+      
+      // Update user's upcoming payment info
+      setMockUsers(prev => 
+        prev.map(user => 
+          user.id === payment.userId 
+            ? {
+                ...user,
+                upcomingPayment: {
+                  amount: 0,
+                  nextDate: ''
+                }
+              }
+            : user
+        )
+      );
+      
+      toast({
+        title: "Success",
+        description: "Upcoming payment deleted successfully and reflected in user's dashboard!",
+      });
+    }
   };
 
   const resetWithdrawalForm = () => {
@@ -315,9 +450,62 @@ const AdminPanel = () => {
     setEditingTransaction(null);
   };
 
+  const resetUpcomingPaymentForm = () => {
+    setUpcomingPaymentForm({
+      userId: '',
+      amount: '',
+      paymentDate: ''
+    });
+    setEditingTransaction(null);
+  };
+
   const handleUpcomingPaymentUpdate = () => {
-    console.log('Upcoming payment updated:', upcomingPayment);
-    alert('Upcoming payment information updated successfully!');
+    if (selectedUser) {
+      // Update the selected user's upcoming payment
+      const updatedUser = {
+        ...selectedUser,
+        upcomingPayment: {
+          amount: upcomingPayment.amount,
+          nextDate: upcomingPayment.nextDate
+        }
+      };
+      
+      // Update the mockUsers array
+      setMockUsers(prev => 
+        prev.map(user => 
+          user.id === selectedUser.id ? updatedUser : user
+        )
+      );
+      
+      // Update the selected user state
+      setSelectedUser(updatedUser);
+      
+      // Update the upcomingPayments array
+      setUpcomingPayments(prev => {
+        const existingPaymentIndex = prev.findIndex(p => p.userId === selectedUser.id);
+        if (existingPaymentIndex >= 0) {
+          // Update existing payment
+          return prev.map((payment, index) => 
+            index === existingPaymentIndex 
+              ? { ...payment, amount: upcomingPayment.amount, paymentDate: upcomingPayment.nextDate }
+              : payment
+          );
+        } else {
+          // Add new payment
+          return [...prev, {
+            id: `UP${Date.now()}`,
+            userId: selectedUser.id,
+            amount: upcomingPayment.amount,
+            paymentDate: upcomingPayment.nextDate
+          }];
+        }
+      });
+      
+      toast({
+        title: "Success",
+        description: "Upcoming payment information updated successfully!",
+      });
+    }
   };
 
   const filteredUsers = mockUsers.filter(user => {
@@ -331,6 +519,12 @@ const AdminPanel = () => {
   const totalUsers = mockUsers.length;
   const premiumUsers = mockUsers.filter(u => u.type === 'Premium').length;
   const nonPremiumUsers = mockUsers.filter(u => u.type === 'Non-Premium').length;
+
+  // Get user name by ID for upcoming payments table
+  const getUserNameById = (userId: string) => {
+    const user = mockUsers.find(u => u.id === userId);
+    return user ? user.name : userId;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -591,36 +785,6 @@ const AdminPanel = () => {
                     </div>
                   </CardContent>
                 </Card>
-
-                {/* Upcoming Payment */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Upcoming Payment</CardTitle>
-                    <p className="text-sm text-muted-foreground">Displayed on user's dashboard</p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">Payment Amount</label>
-                      <Input
-                        type="number"
-                        value={upcomingPayment.amount}
-                        onChange={(e) => setUpcomingPayment({...upcomingPayment, amount: Number(e.target.value)})}
-                        placeholder="Enter amount"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Next Payment Date</label>
-                      <Input
-                        type="date"
-                        value={upcomingPayment.nextDate}
-                        onChange={(e) => setUpcomingPayment({...upcomingPayment, nextDate: e.target.value})}
-                      />
-                    </div>
-                    <Button onClick={handleUpcomingPaymentUpdate}>
-                      Update Payment Info
-                    </Button>
-                  </CardContent>
-                </Card>
               </div>
 
               {/* Payment Management */}
@@ -633,6 +797,7 @@ const AdminPanel = () => {
                     <TabsList>
                       <TabsTrigger value="withdrawals">Withdrawal History</TabsTrigger>
                       <TabsTrigger value="premium">Premium History</TabsTrigger>
+                      <TabsTrigger value="upcoming">Upcoming Payment</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="withdrawals" className="space-y-4">
@@ -914,6 +1079,124 @@ const AdminPanel = () => {
                               </TableCell>
                             </TableRow>
                           ))}
+                        </TableBody>
+                      </Table>
+                    </TabsContent>
+
+                    <TabsContent value="upcoming" className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-lg font-semibold">Upcoming Payment for {selectedUser.name}</h4>
+                          <p className="text-sm text-muted-foreground">Displayed on user's dashboard</p>
+                        </div>
+                        <Dialog open={isUpcomingPaymentDialogOpen} onOpenChange={setIsUpcomingPaymentDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" className="flex items-center gap-2" onClick={() => resetUpcomingPaymentForm()}>
+                              <Plus className="h-4 w-4" />
+                              Add Payment
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>
+                                {editingTransaction ? 'Edit Upcoming Payment' : 'Add Upcoming Payment'}
+                              </DialogTitle>
+                            </DialogHeader>
+                            <form onSubmit={handleAddUpcomingPayment} className="space-y-4">
+                              <div>
+                                <label htmlFor="upcoming-userId" className="block text-sm font-medium mb-2">
+                                  User ID *
+                                </label>
+                                <Input
+                                  id="upcoming-userId"
+                                  name="userId"
+                                  type="text"
+                                  required
+                                  value={upcomingPaymentForm.userId || selectedUser.id}
+                                  onChange={handleUpcomingPaymentFormChange}
+                                  placeholder="User ID"
+                                  readOnly
+                                />
+                              </div>
+                              <div>
+                                <label htmlFor="upcoming-amount" className="block text-sm font-medium mb-2">
+                                  Amount *
+                                </label>
+                                <Input
+                                  id="upcoming-amount"
+                                  name="amount"
+                                  type="number"
+                                  required
+                                  value={upcomingPaymentForm.amount}
+                                  onChange={handleUpcomingPaymentFormChange}
+                                  placeholder="Enter amount"
+                                />
+                              </div>
+                              <div>
+                                <label htmlFor="upcoming-paymentDate" className="block text-sm font-medium mb-2">
+                                  Payment Date *
+                                </label>
+                                <Input
+                                  id="upcoming-paymentDate"
+                                  name="paymentDate"
+                                  type="date"
+                                  required
+                                  value={upcomingPaymentForm.paymentDate}
+                                  onChange={handleUpcomingPaymentFormChange}
+                                />
+                              </div>
+                              <Button type="submit" className="w-full">
+                                {editingTransaction ? 'Update Payment' : 'Add Payment'}
+                              </Button>
+                            </form>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Payment Date</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {upcomingPayments
+                            .filter(payment => payment.userId === selectedUser.id)
+                            .map((payment) => (
+                            <TableRow key={payment.id}>
+                              <TableCell>{payment.userId}</TableCell>
+                              <TableCell>₹{payment.amount.toLocaleString()}</TableCell>
+                              <TableCell>{payment.paymentDate}</TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleEditUpcomingPayment(payment)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleDeleteUpcomingPayment(payment.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {upcomingPayments.filter(payment => payment.userId === selectedUser.id).length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                No upcoming payments found for this user
+                              </TableCell>
+                            </TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </TabsContent>

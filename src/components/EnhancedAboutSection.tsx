@@ -4,10 +4,10 @@ import { Badge } from '@/components/ui/badge';
 
 const EnhancedAboutSection = () => {
   const expertise = [
-    { title: "Bank Nifty Tips", accuracy: "90%+" },
+    { title: "Nifty Tips", accuracy: "90%+" },
     { title: "Volatility Strategies", accuracy: "High Success" },
     { title: "Stop-Loss Management", accuracy: "Risk Control" },
-    { title: "Account Handling", accuracy: "Professional" }
+    { title: "Stock Options PROVIDER", accuracy: "Professional" }
   ];
 
   const achievements = [
